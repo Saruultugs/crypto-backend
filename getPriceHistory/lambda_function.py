@@ -58,6 +58,7 @@ def temp():
         return log
 
 def lambda_handler(event, context):
+    import urllib2
     # from firebase import firebase
     # import json
     # import logging
@@ -76,15 +77,12 @@ def lambda_handler(event, context):
 
     def getPriceHistorySourceFileList():
         html = urllib2.urlopen(config['source_url']).read()
-        body = stripForTag(html, 'body')
-        remainingHtml = stripForTag(html, 'pre')
-        links = []
-        while (remainingHtml.find('<a') >= 0):
-            a, remainingHtml = popAnA(remainingHtml)
-            link = getUrl(a)
-            if (link[:4] != 'http'):
-                link = rootUrl + link
-            links.append(link)
+        innerHtml = stripForTag(html, 'pre')
+        urls = [config['source_url'] + l[l.find('>') + 1 : l.find('<')] for l in innerHtml.split() if l[0:5] == 'href='][1:]
+        config['source_file_list'] = urls
+        log.append(config['source_file_list'][0])
+
+
 
     def findLink(html):
         return html.find('<a')
@@ -164,6 +162,7 @@ def lambda_handler(event, context):
         log.append(insertRow(connection, data[0]))
         return log
 
+    getPriceHistorySourceFileList()
     return log
 
 if __name__ == '__main__':
