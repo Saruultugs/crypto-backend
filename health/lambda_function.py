@@ -1,4 +1,4 @@
-#!/Users/asif/anaconda2/bin/python
+# --function-name health
 
 config = {
   'function_name': 'health',

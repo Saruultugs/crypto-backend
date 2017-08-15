@@ -1,9 +1,6 @@
-#!/usr/bin/python
+# --function-name getPriceHistory
 
 config = {
-  'rds_host': 'currency-prices.coeb0qsth1lu.us-west-1.rds.amazonaws.com',
-  'user': 'shazrat',
-  'passwd': 'Palmpre3',
   'db': 'currency_prices',
   'url': 'https://api.coinmarketcap.com/v1/ticker/?limit=1',
   'fresh_build': False,
