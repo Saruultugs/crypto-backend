@@ -9,6 +9,14 @@ config = {
     'fresh_build': False,
     'clear_build': True
 }
+rds = {
+    'host': 'crypto-data.crapipl8g1ks.us-east-2.rds.amazonaws.com',
+    'user': 'shiraz',
+    'passwd': 'crypto_rds',
+    'db': 'crypto_data',
+    'connect_timeout': 5,
+    'table_name': 'coinmarketcap'
+}
 log = ['Running ' + config['function_name']]
 
 def temp():
@@ -61,13 +69,21 @@ def temp():
 def lambda_handler(event, context):
     # code that will actually be run by AWS Lambda
     import urllib2
+    import pymysql
     # from firebase import firebase
     # import json
     # import logging
-    # import pymysql
     # import requests
 
     # currently used functions
+    def getRdsCursor():
+        try:
+            c = pymysql.connect(host=rds['host'], user=rds['user'], passwd=rds['passwd'], db=rds['db'], connect_timeout=rds['connect_timeout'])
+            log.append("Connected to RDS")
+        except:
+            log.append("Error connecting to RDS")
+            return None
+        return c.cursor()
     def stripForTag(html, tag):
         # helper function which strips down the given html to just the content inside of a given tag
         openTag = '<' + tag
@@ -91,15 +107,6 @@ def lambda_handler(event, context):
         # helper function to get JSON from a url
         log.append('Getting data from ' + config['url'])
         return json.loads(requests.get(config['url']).content)
-    def getMySql():
-        c = None
-        try:
-            # c = pymysql.connect(config['rds_host'], user=config['user'], passwd=config['passwd'], db=config['db'], connect_timeout=5)
-            c = pymysql.connect('currency-prices.coeb0qsth1lu.us-west-1.rds.amazonaws.com', user='shazrat', passwd='Palmpre3', db='currency_prices', connect_timeout=5)
-            log.append('Connected RDS mySQL :)')
-        except:
-            log.append('Error connecting to RDS mySQL')
-        return c
     def createTable(connection):
         connection.cursor.execute('CREATE TABLE BTC (time BIGINT NOT NULL, price_usd FLOAT, price_btc FLOAT, 24h_volume_usd BIGINT, market_cap_usd BIGINT, available_supply BIGINT, total_supply BIGINT, PRIMARY KEY (time))')
         pass
@@ -122,7 +129,10 @@ def lambda_handler(event, context):
             logger.error('Error when inserting row')
 
     # main sequence
-    getPriceHistorySourceFileList()
+    # getPriceHistorySourceFileList()
+    rdsCursor = getRdsCursor()
+    rdsCursor.execute('SHOW TABLES')
+    log.append(rdsCursor.fetchall())
     return log
 
 if __name__ == '__main__':
@@ -133,6 +143,8 @@ if __name__ == '__main__':
     print 'Building and deploying package to Lambda'
     if config['fresh_build']:
         os.system('ls | grep -v lambda_function.py | xargs rm -r')
+    if not os.path.exists('pymysql'):
+        os.system('pip install pymysql -t .')
     # if not os.path.exists('requests'):
     #   os.system('pip install requests -t .')
     # if not os.path.exists('firebase'):
