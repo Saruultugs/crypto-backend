@@ -1,9 +1,10 @@
 # --function-name getPriceHistory
 
+# set global variables (for both build and runtime)
 config = {
+    'function_name': 'getPriceHistory',
     'source_url': 'https://api.bitcoincharts.com/v1/csv/',
     'db': 'currency_prices',
-    'function_name': 'getPriceHistory',
     'url': 'https://api.coinmarketcap.com/v1/ticker/?limit=1',
     'fresh_build': False,
     'clear_build': True
@@ -58,6 +59,7 @@ def temp():
         return log
 
 def lambda_handler(event, context):
+    # code that will actually be run by AWS Lambda
     import urllib2
     # from firebase import firebase
     # import json
@@ -65,7 +67,9 @@ def lambda_handler(event, context):
     # import pymysql
     # import requests
 
+    # currently used functions
     def stripForTag(html, tag):
+        # helper function which strips down the given html to just the content inside of a given tag
         openTag = '<' + tag
         if (html.find(openTag) < 0):
             print 'Tag ' + tag + ' not found'
@@ -74,42 +78,19 @@ def lambda_handler(event, context):
         tagStart = html.find(openTag)
         tagEnd = html.find(closeTag)
         return html[html.find('>', tagStart) + 1:tagEnd]
-
     def getPriceHistorySourceFileList():
+        # get list of data files from the source_url
         html = urllib2.urlopen(config['source_url']).read()
         innerHtml = stripForTag(html, 'pre')
         urls = [config['source_url'] + l[l.find('>') + 1 : l.find('<')] for l in innerHtml.split() if l[0:5] == 'href='][1:]
         config['source_file_list'] = urls
         log.append(config['source_file_list'][0])
 
-
-
-    def findLink(html):
-        return html.find('<a')
-      
-    def findHref(html):
-        return html.find('href=', findLink(html))
-      
-    def getHrefQuote(html):
-        q = findHref(html) + 5
-        return html[q:q+1]
-
-    def getUrl(html):
-        urlStart = findHref(html) + 6
-        urlEnd = html.find(getHrefQuote(html), urlStart)
-        return html[urlStart:urlEnd]
-
-    def popAnA(html):
-        startA = html.find('<a')
-        endA = html.find('</a', startA) + 4
-        url = html[startA:endA]
-        remainingHtml = html[endA:]
-        return url, remainingHtml
-
+    # maybe will use functions
     def getDataFromSource():
+        # helper function to get JSON from a url
         log.append('Getting data from ' + config['url'])
         return json.loads(requests.get(config['url']).content)
-
     def getMySql():
         c = None
         try:
@@ -119,53 +100,34 @@ def lambda_handler(event, context):
         except:
             log.append('Error connecting to RDS mySQL')
         return c
-
     def createTable(connection):
         connection.cursor.execute('CREATE TABLE BTC (time BIGINT NOT NULL, price_usd FLOAT, price_btc FLOAT, 24h_volume_usd BIGINT, market_cap_usd BIGINT, available_supply BIGINT, total_supply BIGINT, PRIMARY KEY (time))')
         pass
-
+    def showARow(cursor):
+        cursor.execute('select * from BTC')
+        return cursor.fetchone()
+    def showAllRows(cursor):
+        cursor.execute('select * from BTC')
+        return cursor.fetchall()
+    def showTables(cursor):
+        cursor.execute('SHOW TABLES')
+        return cursor.fetchall()
     def insertRow(connection, data):
-        mapping = {
-            'last_updated': 'time',
-            'price_usd': 'price_usd',
-            'price_btc': 'price_btc',
-            '24h_volume_usd': '24h_volume_usd',
-            'market_cap_usd': 'market_cap_usd',
-            'available_supply': 'available_supply',
-            'total_supply': 'total_supply'
-        }
-        log = ['Writing currency price data to RDS']
+        # helper function to write data to RDS
         query = ("INSERT INTO BTC (time, price_usd, price_btc, 24h_volume_usd, market_cap_usd, available_supply, total_supply) VALUES (data.last_updated, data.price_usd, data.price_btc, data.24h_volume_usd, data.market_cap_usd, data.available_supply, data.total_supply)")
         try:
             connection.cursor.execute(query)
             connection.commit()
         except:
             logger.error('Error when inserting row')
-        return log
 
-    def showARow(cursor):
-        cursor.execute('select * from BTC')
-        return cursor.fetchone()
-
-    def showAllRows(cursor):
-        cursor.execute('select * from BTC')
-        return cursor.fetchall()
-
-    def showTables(cursor):
-        cursor.execute('SHOW TABLES')
-        return cursor.fetchall()
-
-    def lambda_handler(event, context):
-        log = ['Starting main lambda tasks.']
-        data = getDataFromSource()
-        connection = getMySql()
-        log.append(insertRow(connection, data[0]))
-        return log
-
+    # main sequence
     getPriceHistorySourceFileList()
     return log
 
 if __name__ == '__main__':
+    # build, deploy and run function
+    # this code will only run locally
     import os
     os.system('clear')
     print 'Building and deploying package to Lambda'
